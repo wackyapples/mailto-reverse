@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mailto Link Reverser</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-height: 120px;
+            margin-bottom: 15px;
+            font-family: monospace;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .result {
+            margin-top: 20px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        .email-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .email-item {
+            background-color: #f9f9f9;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            border-left: 3px solid #3498db;
+        }
+        
+        .email-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .email-details {
+            margin-top: 8px;
+            font-size: 14px;
+            border-top: 1px dashed #ddd;
+            padding-top: 8px;
+        }
+        
+        .param-name {
+            font-weight: bold;
+            color: #666;
+            display: inline-block;
+            width: 80px;
+        }
+        
+        .toggle-details {
+            background: none;
+            border: none;
+            color: #3498db;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 0;
+            margin-left: 10px;
+        }
+        .copy-btn {
+            background-color: #eee;
+            color: #333;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .copy-btn:hover {
+            background-color: #ddd;
+        }
+        .info-text {
+            color: #666;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .clearfix::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Mailto Link Reverser</h1>
+        
+        <div>
+            <label for="inputText">Paste content with mailto links:</label>
+            <textarea id="inputText" placeholder="Paste HTML, text, or mailto links here. Example: <a href='mailto:example@domain.com?subject=Hello&body=Hi%20there'>Send email</a>"></textarea>
+            
+            <p class="info-text">This tool extracts all components of mailto links according to RFC6068, including email addresses, subject, body, cc, bcc, and other parameters.</p>
+            
+            <div class="clearfix">
+                <button id="extractBtn">Extract Mailto Data</button>
+            </div>
+        </div>
+        
+        <div class="result" id="resultSection" style="display: none;">
+            <h2>Extracted Mailto Data</h2>
+            <p id="resultCount"></p>
+            <ul class="email-list" id="emailList"></ul>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('extractBtn').addEventListener('click', function() {
+            const inputText = document.getElementById('inputText').value;
+            const emails = extractEmailsFromMailto(inputText);
+            displayResults(emails);
+        });
+
+        function extractEmailsFromMailto(text) {
+            // Regular expression to match entire mailto links with all parameters
+            const mailtoRegex = /mailto:([^'"]+)/gi;
+            const results = [];
+            let match;
+            
+            while ((match = mailtoRegex.exec(text)) !== null) {
+                // Extract the entire mailto URL
+                let mailtoUrl = match[1];
+                
+                // Parse the mailto URL
+                const parsedData = parseMailtoUrl(mailtoUrl);
+                
+                // Add each parsed result
+                results.push(parsedData);
+            }
+            
+            return results;
+        }
+        
+        function parseMailtoUrl(url) {
+            // Split the URL into the email address part and the query parameters part
+            const [emailPart, queryPart] = url.split('?');
+            
+            // Decode the email part
+            const to = decodeURIComponent(emailPart);
+            
+            // Initialize the result object
+            const result = {
+                to: to.split(',').map(e => e.trim()),
+                cc: [],
+                bcc: [],
+                subject: '',
+                body: '',
+                otherParams: {}
+            };
+            
+            // If there are query parameters, parse them
+            if (queryPart) {
+                const params = new URLSearchParams(queryPart);
+                
+                // Handle standard parameters according to RFC6068
+                if (params.has('subject')) {
+                    result.subject = decodeURIComponent(params.get('subject')).replace(/\+/g, ' ');
+                }
+                
+                if (params.has('body')) {
+                    result.body = decodeURIComponent(params.get('body')).replace(/\+/g, ' ');
+                }
+                
+                if (params.has('cc')) {
+                    result.cc = decodeURIComponent(params.get('cc'))
+                        .split(',')
+                        .map(e => e.trim());
+                }
+                
+                if (params.has('bcc')) {
+                    result.bcc = decodeURIComponent(params.get('bcc'))
+                        .split(',')
+                        .map(e => e.trim());
+                }
+                
+                // Handle any other parameters
+                params.forEach((value, key) => {
+                    if (!['subject', 'body', 'cc', 'bcc'].includes(key)) {
+                        result.otherParams[key] = decodeURIComponent(value).replace(/\+/g, ' ');
+                    }
+                });
+            }
+            
+            return result;
+        }
+
+        function displayResults(parsedResults) {
+            const resultSection = document.getElementById('resultSection');
+            const resultCount = document.getElementById('resultCount');
+            const emailList = document.getElementById('emailList');
+            
+            // Clear previous results
+            emailList.innerHTML = '';
+            
+            if (parsedResults.length === 0) {
+                resultCount.textContent = 'No mailto links found.';
+            } else {
+                resultCount.textContent = `Found ${parsedResults.length} mailto link${parsedResults.length !== 1 ? 's' : ''}.`;
+                
+                // Create a list item for each parsed mailto
+                parsedResults.forEach((result, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'email-item';
+                    
+                    // Create header with email and copy button
+                    const header = document.createElement('div');
+                    header.className = 'email-header';
+                    
+                    const emailSpan = document.createElement('span');
+                    emailSpan.innerHTML = `<strong>To:</strong> ${result.to.join(', ')}`;
+                    
+                    const buttonsDiv = document.createElement('div');
+                    
+                    const copyBtn = document.createElement('button');
+                    copyBtn.className = 'copy-btn';
+                    copyBtn.textContent = 'Copy Email';
+                    copyBtn.addEventListener('click', function() {
+                        navigator.clipboard.writeText(result.to.join(', '))
+                            .then(() => {
+                                const originalText = this.textContent;
+                                this.textContent = 'Copied!';
+                                setTimeout(() => {
+                                    this.textContent = originalText;
+                                }, 1500);
+                            });
+                    });
+                    
+                    const toggleBtn = document.createElement('button');
+                    toggleBtn.className = 'toggle-details';
+                    toggleBtn.textContent = 'Show Details';
+                    toggleBtn.dataset.index = index;
+                    toggleBtn.addEventListener('click', function() {
+                        const detailsDiv = document.getElementById(`details-${this.dataset.index}`);
+                        if (detailsDiv.style.display === 'none') {
+                            detailsDiv.style.display = 'block';
+                            this.textContent = 'Hide Details';
+                        } else {
+                            detailsDiv.style.display = 'none';
+                            this.textContent = 'Show Details';
+                        }
+                    });
+                    
+                    buttonsDiv.appendChild(copyBtn);
+                    buttonsDiv.appendChild(toggleBtn);
+                    
+                    header.appendChild(emailSpan);
+                    header.appendChild(buttonsDiv);
+                    li.appendChild(header);
+                    
+                    // Create details section
+                    const details = document.createElement('div');
+                    details.className = 'email-details';
+                    details.id = `details-${index}`;
+                    details.style.display = 'none';
+                    
+                    // Add CC recipients if present
+                    if (result.cc.length > 0) {
+                        const ccDiv = document.createElement('div');
+                        ccDiv.innerHTML = `<span class="param-name">CC:</span> ${result.cc.join(', ')}`;
+                        details.appendChild(ccDiv);
+                    }
+                    
+                    // Add BCC recipients if present
+                    if (result.bcc.length > 0) {
+                        const bccDiv = document.createElement('div');
+                        bccDiv.innerHTML = `<span class="param-name">BCC:</span> ${result.bcc.join(', ')}`;
+                        details.appendChild(bccDiv);
+                    }
+                    
+                    // Add subject if present
+                    if (result.subject) {
+                        const subjectDiv = document.createElement('div');
+                        subjectDiv.innerHTML = `<span class="param-name">Subject:</span> ${result.subject}`;
+                        
+                        const copySubjectBtn = document.createElement('button');
+                        copySubjectBtn.className = 'copy-btn';
+                        copySubjectBtn.textContent = 'Copy';
+                        copySubjectBtn.style.marginLeft = '10px';
+                        copySubjectBtn.addEventListener('click', function() {
+                            navigator.clipboard.writeText(result.subject)
+                                .then(() => {
+                                    const originalText = this.textContent;
+                                    this.textContent = 'Copied!';
+                                    setTimeout(() => {
+                                        this.textContent = originalText;
+                                    }, 1500);
+                                });
+                        });
+                        
+                        subjectDiv.appendChild(copySubjectBtn);
+                        details.appendChild(subjectDiv);
+                    }
+                    
+                    // Add body if present
+                    if (result.body) {
+                        const bodyDiv = document.createElement('div');
+                        bodyDiv.innerHTML = `<span class="param-name">Body:</span> <div style="margin-top: 5px; white-space: pre-wrap;">${result.body}</div>`;
+                        
+                        const copyBodyBtn = document.createElement('button');
+                        copyBodyBtn.className = 'copy-btn';
+                        copyBodyBtn.textContent = 'Copy';
+                        copyBodyBtn.style.marginLeft = '10px';
+                        copyBodyBtn.addEventListener('click', function() {
+                            navigator.clipboard.writeText(result.body)
+                                .then(() => {
+                                    const originalText = this.textContent;
+                                    this.textContent = 'Copied!';
+                                    setTimeout(() => {
+                                        this.textContent = originalText;
+                                    }, 1500);
+                                });
+                        });
+                        
+                        bodyDiv.appendChild(copyBodyBtn);
+                        details.appendChild(bodyDiv);
+                    }
+                    
+                    // Add other parameters if present
+                    const otherParams = Object.entries(result.otherParams);
+                    if (otherParams.length > 0) {
+                        const otherParamsDiv = document.createElement('div');
+                        otherParamsDiv.innerHTML = '<span class="param-name">Other:</span>';
+                        
+                        const paramsList = document.createElement('ul');
+                        paramsList.style.margin = '5px 0 0 0';
+                        paramsList.style.paddingLeft = '20px';
+                        
+                        otherParams.forEach(([key, value]) => {
+                            const paramItem = document.createElement('li');
+                            paramItem.textContent = `${key}: ${value}`;
+                            paramsList.appendChild(paramItem);
+                        });
+                        
+                        otherParamsDiv.appendChild(paramsList);
+                        details.appendChild(otherParamsDiv);
+                    }
+                    
+                    li.appendChild(details);
+                    emailList.appendChild(li);
+                });
+            }
+            
+            // Show the result section
+            resultSection.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
