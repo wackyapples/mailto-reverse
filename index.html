@@ -151,9 +151,17 @@
             displayResults(emails);
         });
 
+        // Add event listener for Enter key in textarea
+        document.getElementById('inputText').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                e.preventDefault();
+                document.getElementById('extractBtn').click();
+            }
+        });
+
         function extractEmailsFromMailto(text) {
-            // Regular expression to match entire mailto links with all parameters
-            const mailtoRegex = /mailto:([^'"]+)/gi;
+            // Improved regex to better match mailto links in various contexts
+            const mailtoRegex = /mailto:((?:[^'"<>()[\]\\.,;:\s@"]+(?:\.[^'"<>()[\]\\.,;:\s@"]+)*|"[^"]+")(?:\?[^'"<>)]*)?)/gi;
             const results = [];
             let match;
             
@@ -161,11 +169,25 @@
                 // Extract the entire mailto URL
                 let mailtoUrl = match[1];
                 
-                // Parse the mailto URL
-                const parsedData = parseMailtoUrl(mailtoUrl);
-                
-                // Add each parsed result
-                results.push(parsedData);
+                try {
+                    // Parse the mailto URL
+                    const parsedData = parseMailtoUrl(mailtoUrl);
+                    
+                    // Add each parsed result
+                    results.push(parsedData);
+                } catch (error) {
+                    console.error("Error parsing mailto URL:", error, mailtoUrl);
+                    // Optionally add a malformed entry to show the user there was an issue
+                    results.push({
+                        to: [mailtoUrl],
+                        cc: [],
+                        bcc: [],
+                        subject: '',
+                        body: '',
+                        otherParams: {},
+                        error: 'Malformed mailto link'
+                    });
+                }
             }
             
             return results;
@@ -241,6 +263,12 @@
                 parsedResults.forEach((result, index) => {
                     const li = document.createElement('li');
                     li.className = 'email-item';
+                    
+                    // Add error indication if there was a parsing error
+                    if (result.error) {
+                        li.classList.add('error-item');
+                        li.style.borderLeft = '3px solid #e74c3c';
+                    }
                     
                     // Create header with email and copy button
                     const header = document.createElement('div');
@@ -375,6 +403,13 @@
                         details.appendChild(otherParamsDiv);
                     }
                     
+                    // Add error message if present
+                    if (result.error) {
+                        const errorDiv = document.createElement('div');
+                        errorDiv.innerHTML = `<span class="param-name" style="color:#e74c3c">Error:</span> ${result.error}`;
+                        details.appendChild(errorDiv);
+                    }
+                    
                     li.appendChild(details);
                     emailList.appendChild(li);
                 });
@@ -382,6 +417,9 @@
             
             // Show the result section
             resultSection.style.display = 'block';
+            
+            // Auto-focus back to input for convenience
+            document.getElementById('inputText').focus();
         }
     </script>
 </body>
